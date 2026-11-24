@@ -1,0 +1,26 @@
+[workspace]
+members = ["."]
+resolver = "3"
+
+[package]
+name = "bridgy"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+description = "Passive cross-CLI context from the session logs your agents already write"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive", "env"] }
+ratatui = { version = "0.30.2", default-features = false, features = ["crossterm", "unstable-rendered-line-info"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11.1"
+tempfile = "3"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+

@@ -1,0 +1,10 @@
+pub mod clipboard;
+pub mod commands;
+pub mod config;
+pub mod protocol;
+pub mod providers;
+pub mod sessions;
+pub mod tail;
+pub mod transcript;
+pub mod tui;
+pub mod workspace;
