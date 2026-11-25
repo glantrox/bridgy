@@ -2,6 +2,9 @@
 
 # bridgy.
 
+
+
+
 **Pick up in one AI coding agent where you left off in another.**
 
 Bridgy is a local conversation browser and handoff tool for **Claude Code, Codex, and Gemini CLI**. It reads the session history your agents already save. If Claude stops mid-task, open Codex in the same checkout and ask:
@@ -92,6 +95,9 @@ By default, Bridgy returns up to **40 recent user and assistant messages**, in c
 - `bridgy uninstall` removes Bridgy's managed blocks while preserving your agent instructions outside those blocks and your session logs.
 
 If a conversation is missing, run `bridgy doctor` to see which locations Bridgy checked. For SSH, WSL, or dev containers, run Bridgy in the environment where the source agent saved its logs. If your next agent runs elsewhere, export the preview as Markdown and bring it into the new chat.
+
+## Demo
+https://github.com/user-attachments/assets/5ccad24f-fbd5-4ed1-9ccb-3f29205e9895
 
 ## Bridgy Team Sync
 
