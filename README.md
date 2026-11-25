@@ -1,4 +1,4 @@
-# Bridgy
+<img width="1280" height="529" alt="Bridgy — GitHub banner" src="https://github.com/user-attachments/assets/415c5913-d0ac-41a6-89a5-1b8d7a0606eb" />
 
 **Pick up in one AI coding agent where you left off in another.**
 
