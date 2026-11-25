@@ -164,7 +164,10 @@ fn picker_and_tail_share_checkout_filtering_and_explicit_overrides() {
             String::from_utf8_lossy(&result.stderr)
         );
         let value: Value = serde_json::from_slice(&result.stdout).unwrap();
-        assert_eq!(value["session"], expected.to_str().unwrap());
+        assert_eq!(
+            Path::new(value["session"].as_str().unwrap()),
+            expected.as_path()
+        );
     }
     for args in [
         vec![
@@ -246,7 +249,13 @@ fn selected_older_session_stays_exact_for_preview_copy_and_export() {
             .unwrap()
             .markdown()
     );
-    let cli = f.cli(&["tail", "claude", "--file", old.to_str().unwrap()]);
+    // Markdown includes the displayed path. Pass the picker's exact reference to both renderers.
+    let cli = f.cli(&[
+        "tail",
+        "claude",
+        "--file",
+        selected.reference.path.to_str().unwrap(),
+    ]);
     assert!(cli.status.success());
     assert_eq!(preview.as_bytes(), cli.stdout);
     // Even a rewrite of the selected file must not change the transfer after preview.

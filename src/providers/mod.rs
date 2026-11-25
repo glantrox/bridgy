@@ -66,6 +66,10 @@ pub struct Header {
 
 /// One on-disk history store and its format-specific parsing.
 pub trait SessionSource {
+    /// Header IDs uniquely identify sessions within this store and workspace.
+    fn native_identity(&self) -> bool {
+        false
+    }
     fn id(&self) -> &'static str;
     fn root(&self, config: &Config) -> PathBuf;
     fn accepts(&self, path: &Path) -> bool;

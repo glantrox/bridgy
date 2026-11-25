@@ -146,10 +146,11 @@ fn decode(path: &Path, count: usize, max: u64) -> Result<(Bookmark, TailResult)>
             let info = &v["info"];
             ensure!(
                 info["id"].as_str().is_some_and(|s| s.starts_with("ses_"))
-                    && info["version"]
-                        .as_str()
-                        .is_some_and(|s| s.starts_with("1.")),
-                "unsupported JSON export (expected OpenCode 1.x session format)"
+                    && info["version"].as_str().is_some_and(|s| s
+                        .split('.')
+                        .next()
+                        .is_some_and(|n| n.parse::<u32>().is_ok())),
+                "unsupported JSON export (expected an OpenCode/Kilo session export with info and messages)"
             );
             let messages = v["messages"]
                 .as_array()
@@ -158,7 +159,7 @@ fn decode(path: &Path, count: usize, max: u64) -> Result<(Bookmark, TailResult)>
                 .as_str()
                 .map(PathBuf::from)
                 .filter(|p| p.is_absolute());
-            b.format = "OpenCode JSON v1".into();
+            b.format = "session JSON v1".into();
             if let Some(title) = info["title"].as_str() {
                 b.title = title.into();
             }

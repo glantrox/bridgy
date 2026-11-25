@@ -234,7 +234,7 @@ fn newest_selection_uses_mtime_and_status_reports_session_size() {
         .set_modified(old_time)
         .unwrap();
     let value = tail(temp.path(), "claude");
-    assert_eq!(value["session"], new.to_str().unwrap());
+    assert_eq!(Path::new(value["session"].as_str().unwrap()), new.as_path());
     let status: Value =
         serde_json::from_slice(&ok(temp.path(), &["status", "--json"]).stdout).unwrap();
     assert_eq!(status[0]["session_files"], 2);

@@ -40,35 +40,34 @@ pub fn checks(config: &Config) -> Result<Vec<Check>> {
             );
             continue;
         }
-        if entry.instructions.is_none() {
-            continue;
-        }
-        if entry.sync != "synced" {
-            push(
-                Level::Fail,
-                format!(
-                    "FAIL {}: instructions {}; run install/sync or repair markers",
-                    entry.provider, entry.sync
-                ),
-            );
-        } else {
-            push(Level::Ok, format!("OK {}: protocol synced", entry.provider));
-        }
-        for warning in entry.warnings {
-            push(Level::Fail, format!("FAIL {}: {warning}", entry.provider));
-        }
-        let target = config::target_path(entry.instructions.as_deref().unwrap())?;
-        for path in [Some(target.as_path()), target.parent()]
-            .into_iter()
-            .flatten()
-        {
-            if let Ok(metadata) = fs::metadata(path)
-                && metadata.permissions().readonly()
-            {
+        if let Some(instructions) = &entry.instructions {
+            if entry.sync != "synced" {
                 push(
                     Level::Fail,
-                    format!("FAIL: {} has read-only permissions", path.display()),
+                    format!(
+                        "FAIL {}: instructions {}; run install/sync or repair markers",
+                        entry.provider, entry.sync
+                    ),
                 );
+            } else {
+                push(Level::Ok, format!("OK {}: protocol synced", entry.provider));
+            }
+            for warning in entry.warnings {
+                push(Level::Fail, format!("FAIL {}: {warning}", entry.provider));
+            }
+            let target = config::target_path(instructions)?;
+            for path in [Some(target.as_path()), target.parent()]
+                .into_iter()
+                .flatten()
+            {
+                if let Ok(metadata) = fs::metadata(path)
+                    && metadata.permissions().readonly()
+                {
+                    push(
+                        Level::Fail,
+                        format!("FAIL: {} has read-only permissions", path.display()),
+                    );
+                }
             }
         }
         if let Some(path) = entry.newest_session {

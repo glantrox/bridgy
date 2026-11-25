@@ -2,7 +2,7 @@
 
 **Switch coding agents. Keep the conversation. Spend zero tokens saving it.**
 
-Bridgy is a Rust terminal browser and CLI that reads the session logs Claude Code, Codex, and Gemini CLI already write. Pick a conversation from your current checkout, preview it, and copy or export it into another agent. A shared instruction block also lets your next agent load recent conversation text directly. No MCP server, database, daemon, wrapper CLI, or extra model calls.
+Bridgy is a Rust terminal browser and CLI that reads local coding-agent sessions and imports exported transcripts. Pick a conversation from your current checkout, preview it, and copy or export it into another agent. A shared instruction block also lets your next agent load recent conversation text directly. No MCP server, database, daemon, wrapper CLI, or extra model calls.
 
 ## Start here
 
@@ -165,6 +165,36 @@ bridgy --home "$demo_home" uninstall
 | Claude Code | `~/.claude/CLAUDE.md` | `~/.claude/projects/**/*.jsonl` |
 | Codex | `~/.codex/AGENTS.md` | `~/.codex/sessions/**/*.jsonl` |
 | Gemini CLI | `~/.gemini/GEMINI.md` | `~/.gemini/tmp/**/chats/session-*.json` and `*.jsonl` |
+
+## Provider compatibility and transcript import
+
+| Client or format | Platform / evidence | Auto-discover | Import | One-prompt handoff (receiver) |
+|---|---|---|---|---|
+| Claude Code, including VS Code logs | Existing JSONL reader, macOS local logs and regression fixtures | Yes | — | Managed setup available. Fresh Claude CLI verification requires sign-in. |
+| Codex, including VS Code logs | Existing rollout reader, macOS | Yes | — | Verified with a fresh Codex CLI session on macOS |
+| Gemini CLI | Existing JSON/JSONL reader and regression fixtures | Yes | — | Managed setup available. Live receiver test pending. |
+| GitHub Copilot session-state events v1 | macOS local Copilot agent logs, producer build recorded in fixture notes | Yes | — | — |
+| Cline VS Code 4.1.26 | macOS, shared sessions v1 store | Yes | — | — |
+| OpenCode CLI 1.18.3 | macOS, actual CLI JSON export | — | Yes | — |
+| Cursor Markdown and other Markdown/text transcripts | UTF-8 files, bounded plain-text preview | — | Yes | — |
+| Kilo CLI JSON | Documented single-session export layout, shared reader. Native Kilo fixture pending. | — | Compatible layout | — |
+
+Copilot looks under `~/.copilot/session-state/<session>/events.jsonl`. Cline pairs the task metadata and `*.messages.json` in `~/.cline/data/sessions`. Unsupported schemas or unreadable data are reported in diagnostics. VS Code Copilot Chat, Cline CLI, and legacy Cline extension storage require separate verification. For OpenCode and Kilo, export the session first. The JSON reader selects user and assistant text parts and filters tools and reasoning. [OpenCode commands](https://opencode.ai/docs/cli/commands/) · [Kilo export implementation](https://github.com/Kilo-Org/kilocode/blob/main/packages/opencode/src/cli/cmd/export.ts)
+
+```sh
+bridgy tail copilot
+bridgy tail cline
+opencode export SESSION_ID > conversation.json
+# Alternatively: kilo export SESSION_ID > conversation.json
+bridgy import conversation.json
+bridgy import "Cursor conversation.md"
+bridgy import "Cursor conversation.md" --save --here
+bridgy tail import
+```
+
+In the picker, press **i**, type the export path, and press **Enter** to preview it. Use **c** to copy or **e** to export. Press **s** to remember the original path and any supplied workspace, or **a** to associate it with the checkout shown in the picker. **Esc** discards the temporary preview. In the CLI, `--save` remembers the import and `--here` associates it with the current checkout. References without a workspace appear under `--global`. A reference lives under `~/.bridgy/imports` and reopens the original file, so keep that file available. Plain Markdown retains the speaker labels and other text already present in the file. Previewing has no setup or write requirement.
+
+A fresh Codex CLI session recovered distinct values from sanitized Copilot, Cline, and OpenCode fixtures using the generated instructions and the tested binary on PATH. For the fixture provenance and contributor instructions, see [the fixture notes](tests/fixtures/expansion/README.md). To add newly detected source commands to an existing generated handoff protocol, run `bridgy sync --regenerate` (this replaces a customized protocol after backing it up).
 
 ## Safe instruction updates
 

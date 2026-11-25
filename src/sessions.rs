@@ -176,6 +176,7 @@ pub fn list(config: &Config, scope: &Scope, options: ListOptions) -> Listing {
     let mut matcher = Matcher::new(scope);
     let mut sessions = Vec::new();
     let mut reports = Vec::new();
+    let mut identities = std::collections::HashMap::new();
     for provider in providers {
         let mut report = StoreReport::new(provider.id());
         for source in provider.sources() {
@@ -218,7 +219,31 @@ pub fn list(config: &Config, scope: &Scope, options: ListOptions) -> Listing {
                 } else {
                     header.title.clone()
                 };
-                sessions.push(SessionMeta {
+                // Only adapters that validate a native ID may coalesce duplicate discoveries.
+                let identity = header
+                    .id
+                    .as_ref()
+                    .filter(|_| source.native_identity())
+                    .map(|id| {
+                        (
+                            provider.id(),
+                            source.id(),
+                            header.workspace.clone(),
+                            id.clone(),
+                        )
+                    });
+                if let Some(key) = identity.as_ref()
+                    && let Some(&index) = identities.get(key)
+                {
+                    report.matched -= 1;
+                    let current: &SessionMeta = &sessions[index];
+                    if (current.last_activity, &current.reference.path)
+                        >= (file.modified, &file.path)
+                    {
+                        continue;
+                    }
+                }
+                let metadata = SessionMeta {
                     id: header.id.clone().unwrap_or_else(|| {
                         file.path
                             .file_stem()
@@ -234,7 +259,15 @@ pub fn list(config: &Config, scope: &Scope, options: ListOptions) -> Listing {
                     last_activity: file.modified,
                     title,
                     surface: header.surface,
-                });
+                };
+                if let Some(key) = identity {
+                    let idx = *identities.entry(key).or_insert(sessions.len());
+                    if idx < sessions.len() {
+                        sessions[idx] = metadata;
+                        continue;
+                    }
+                }
+                sessions.push(metadata);
             }
         }
         reports.push(report);

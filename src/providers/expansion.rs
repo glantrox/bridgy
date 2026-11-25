@@ -25,6 +25,9 @@ impl Provider for Copilot {
 }
 struct Events;
 impl SessionSource for Events {
+    fn native_identity(&self) -> bool {
+        true
+    }
     fn id(&self) -> &'static str {
         "events-v1"
     }
@@ -94,6 +97,9 @@ impl Provider for Cline {
 }
 struct ClineSessions;
 impl SessionSource for ClineSessions {
+    fn native_identity(&self) -> bool {
+        true
+    }
     fn id(&self) -> &'static str {
         "sessions-v1"
     }
