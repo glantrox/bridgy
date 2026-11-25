@@ -6,14 +6,19 @@ only when the user explicitly requests handoffs.
 
 ## Homebrew
 
+```sh
+brew install glantrox/tap/bridgy
+```
+
+Run `bridgy` from your project directory. The [public tap](https://github.com/glantrox/homebrew-tap) contains the installable formula. The initial v0.1.0 formula builds from tagged source and Homebrew installs Rust as a build dependency.
+
 `homebrew/bridgy.rb.in` installs the archive's executable with `bin.install "bridgy"`.
 Homebrew links it into its own bin directory without a hardcoded prefix. The formula
 has no setup hook and tests `--version` plus redirected help. See the official
 [Formula Cookbook](https://docs.brew.sh/Formula-Cookbook#bininstall-foo).
 
-After publishing a release, unpack `bridgy-packages.tar.gz`, copy `bridgy.rb` into
-your tap's `Formula/` directory, and publish that tap. Users can then install using
-`brew install <owner>/<tap>/bridgy`. A tap is not yet assigned to this checkout.
+After publishing a binary release, unpack `bridgy-packages.tar.gz` and publish
+the generated `bridgy.rb` as `Formula/bridgy.rb` in `glantrox/homebrew-tap`.
 
 ## WinGet
 
@@ -64,4 +69,4 @@ remain untouched until `bridgy install` is explicitly run.
 
 Local installer tests execute the printed PATH commands in isolated homes and start
 new interactive/login shells. Windows CI tests the PowerShell copy independently.
-Native Homebrew/WinGet catalog installs still require published release artifacts.
+The binary Homebrew formula and WinGet manifests require published release artifacts.

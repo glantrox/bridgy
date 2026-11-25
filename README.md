@@ -12,20 +12,30 @@ You can also open Bridgy's terminal browser to find a specific conversation, pre
 
 ## Install Bridgy
 
-With Rust and Cargo installed, run this command from any directory on macOS, Linux, or Windows. If you need Cargo, install [Rust](https://rustup.rs/) first and reopen your terminal.
+On **macOS or Linux**, install Bridgy with Homebrew from any directory.
+
+```sh
+brew install glantrox/tap/bridgy
+```
+
+Open a fresh terminal in your project and launch the conversation browser.
+
+```sh
+bridgy
+```
+
+<details>
+<summary>Windows or installation without Homebrew</summary>
+
+With [Rust and Cargo](https://rustup.rs/) installed, run this command from any directory.
 
 ```sh
 cargo install --locked --git https://github.com/glantrox/bridgy
 ```
 
-Open a fresh terminal in the project where you use your coding agent. Check the installation, then launch the browser.
+Run `bridgy --version` to check the installation, then `bridgy` to launch. If your terminal can’t find the command, add the bin directory printed by Cargo to your `PATH` and reopen the terminal.
 
-```sh
-bridgy --version
-bridgy
-```
-
-If your terminal can’t find `bridgy`, add the bin directory printed by Cargo to your `PATH`, then reopen the terminal.
+</details>
 
 **Optional agent handoffs.** Run `bridgy install` once, then start a fresh agent session in the same checkout and ask it to pick up where you left off.
 
@@ -82,6 +92,17 @@ By default, Bridgy returns up to **40 recent user and assistant messages**, in c
 - `bridgy uninstall` removes Bridgy's managed blocks while preserving your agent instructions outside those blocks and your session logs.
 
 If a conversation is missing, run `bridgy doctor` to see which locations Bridgy checked. For SSH, WSL, or dev containers, run Bridgy in the environment where the source agent saved its logs. If your next agent runs elsewhere, export the preview as Markdown and bring it into the new chat.
+
+## Bridgy Team Sync
+
+Using Bridgy across multiple machines or collaborating with teammates on the same repository? **Bridgy Team Sync** extends the open-source CLI with a native desktop command center and end-to-end encrypted cloud workspaces:
+
+- **Branch-Scoped Team Handoffs:** Push a bounded session to your branch so teammates can pull your AI reasoning straight into their local Claude Code, Codex, or Gemini CLI.
+- **Zero-Knowledge E2EE & Secret Redaction:** Sensitive keys are scrubbed locally and transcripts are encrypted client-side (`AES-256-GCM`) before leaving your machine—Bridgy servers only relay ciphertext.
+- **Cross-Device & Remote Sync:** Seamlessly carry context between your workstation, laptop, WSL, and dev containers.
+- **Shared Org Protocols & PR Links:** Sync a central `PROTOCOL.md` across your team and attach zero-knowledge session trails to GitHub Pull Requests.
+
+> **Are you interested?** [Join the Bridgy Team Sync waitlist](https://sites.google.com/view/bridgy-team-sync/full-page-embed) to get early access for your engineering team.
 
 ## Development
 
