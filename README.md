@@ -92,7 +92,7 @@ Using Bridgy across multiple machines or collaborating with teammates on the sam
 - **Cross-Device & Remote Sync:** Seamlessly carry context between your workstation, laptop, WSL, and dev containers.
 - **Shared Org Protocols & PR Links:** Sync a central `PROTOCOL.md` across your team and attach zero-knowledge session trails to GitHub Pull Requests.
 
-> **Are you interested?** [Join the Bridgy Team Sync waitlist]([https://sites.google.com/view/bridgy-team-sync/full-page-embed](https://sites.google.com/view/bridgyteamsynclandingpage/full-page-embed)) to get early access for your engineering team.
+> **Are you interested?** [Join the Bridgy Team Sync waitlist](https://sites.google.com/view/bridgy-team-sync/full-page-embed) to get early access for your engineering team.
 
 ## Development
 
