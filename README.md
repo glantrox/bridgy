@@ -1,5 +1,7 @@
 <img width="1280" height="529" alt="Bridgy — GitHub banner" src="https://github.com/user-attachments/assets/415c5913-d0ac-41a6-89a5-1b8d7a0606eb" />
 
+# bridgy.
+
 **Pick up in one AI coding agent where you left off in another.**
 
 Bridgy is a local conversation browser and handoff tool for **Claude Code, Codex, and Gemini CLI**. It reads the session history your agents already save. If Claude stops mid-task, open Codex in the same checkout and ask:
