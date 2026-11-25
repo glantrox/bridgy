@@ -83,6 +83,17 @@ By default, Bridgy returns up to **40 recent user and assistant messages**, in c
 
 If a conversation is missing, run `bridgy doctor` to see which locations Bridgy checked. For SSH, WSL, or dev containers, run Bridgy in the environment where the source agent saved its logs. If your next agent runs elsewhere, export the preview as Markdown and bring it into the new chat.
 
+## Bridgy Team Sync (Official Desktop & Cloud)
+
+Using Bridgy across multiple machines or collaborating with teammates on the same repository? **Bridgy Team Sync** extends the open-source CLI with a native desktop command center and end-to-end encrypted cloud workspaces:
+
+- **Branch-Scoped Team Handoffs:** Push a bounded session to your branch so teammates can pull your AI reasoning straight into their local Claude Code, Codex, or Gemini CLI.
+- **Zero-Knowledge E2EE & Secret Redaction:** Sensitive keys are scrubbed locally and transcripts are encrypted client-side (`AES-256-GCM`) before leaving your machine—Bridgy servers only relay ciphertext.
+- **Cross-Device & Remote Sync:** Seamlessly carry context between your workstation, laptop, WSL, and dev containers.
+- **Shared Org Protocols & PR Links:** Sync a central `PROTOCOL.md` across your team and attach zero-knowledge session trails to GitHub Pull Requests.
+
+> **Are you interested?** [Join the Bridgy Team Sync waitlist](https://sites.google.com/view/bridgy-team-sync/full-page-embed) to get early access for your engineering team.
+
 ## Development
 
 ```sh
