@@ -6,6 +6,8 @@ use std::{
 };
 use tempfile::TempDir;
 
+const VERSION_OUTPUT: &str = concat!("bridgy ", env!("CARGO_PKG_VERSION"));
+
 fn run(home: &Path, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_bridgy"))
         .arg("--home")
@@ -41,7 +43,10 @@ fn tail(home: &Path, provider: &str) -> Value {
 fn help_version_usage_and_home_precedence() {
     let temp = TempDir::new().unwrap();
     assert!(String::from_utf8_lossy(&ok(temp.path(), &["--help"]).stdout).contains("uninstall"));
-    assert!(String::from_utf8_lossy(&ok(temp.path(), &["--version"]).stdout).contains("0.1.0"));
+    assert_eq!(
+        String::from_utf8_lossy(&ok(temp.path(), &["--version"]).stdout).trim(),
+        VERSION_OUTPUT
+    );
     for args in [
         vec!["tail"],
         vec!["--bad"],
@@ -355,7 +360,11 @@ fn installer_path_commands_work_in_fresh_shells_outside_the_repo() {
                 "{}",
                 String::from_utf8_lossy(&version.stderr)
             );
-            assert!(String::from_utf8_lossy(&version.stdout).contains("bridgy 0.1.0"));
+            assert!(
+                String::from_utf8_lossy(&version.stdout)
+                    .lines()
+                    .any(|line| line == VERSION_OUTPUT)
+            );
         }
         assert!(!home.join(".bridgy").exists());
         assert!(!home.join(".claude").exists());

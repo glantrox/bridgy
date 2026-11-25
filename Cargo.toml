@@ -4,7 +4,7 @@ resolver = "3"
 
 [package]
 name = "bridgy"
-version = "0.1.0"
+version = "0.2.0-beta.2"
 edition = "2024"
 rust-version = "1.89"
 description = "Passive cross-CLI context from the session logs your agents already write"
