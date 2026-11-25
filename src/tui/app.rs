@@ -23,10 +23,18 @@ pub enum View {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Prompt {
+    Import {
+        input: String,
+    },
     /// Editing the export path.
-    Export { input: String },
+    Export {
+        input: String,
+    },
     /// The path exists; waiting for y/n.
-    Overwrite { input: String, path: PathBuf },
+    Overwrite {
+        input: String,
+        path: PathBuf,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,6 +82,7 @@ pub struct App<'a> {
     pub cwd: PathBuf,
     pub quit: bool,
     copier: Copier,
+    pub pending_import: Option<crate::imports::Bookmark>,
 }
 
 impl<'a> App<'a> {
@@ -99,6 +108,7 @@ impl<'a> App<'a> {
             cwd,
             quit: false,
             copier,
+            pending_import: None,
         };
         app.flag_broken_stores();
         app
@@ -151,6 +161,9 @@ impl<'a> App<'a> {
 
     /// Load the selected session once; later copy/export reuse the exact previewed text.
     fn ensure_loaded(&mut self) -> bool {
+        if self.pending_import.is_some() && self.view == View::Preview {
+            return true;
+        }
         let Some(session) = self.selected_session().cloned() else {
             self.set(Tone::Warn, "No session selected");
             return false;
@@ -209,9 +222,34 @@ impl<'a> App<'a> {
             KeyCode::Home => self.selected = 0,
             KeyCode::End => self.selected = self.listing.sessions.len().saturating_sub(1),
             KeyCode::Enter if self.view == View::Sessions => self.open_preview(),
+            KeyCode::Char('i') if self.view == View::Sessions => {
+                self.prompt = Some(Prompt::Import {
+                    input: String::new(),
+                })
+            }
+            KeyCode::Char(k @ ('s' | 'a')) if self.pending_import.is_some() => {
+                let scope = self.home_scope.root();
+                let result = self
+                    .pending_import
+                    .as_ref()
+                    .unwrap()
+                    .save(self.config, if k == 'a' { scope } else { None });
+                match result {
+                    Ok(()) => {
+                        self.back();
+                        self.reload(self.listing.scope.clone());
+                        self.set(Tone::Ok, "Import saved");
+                    }
+                    Err(e) => self.set(Tone::Error, format!("{e:#}")),
+                }
+            }
             KeyCode::Char('c') if self.view != View::Diagnostics => self.copy(),
             KeyCode::Char('e') if self.view != View::Diagnostics => self.start_export(),
-            KeyCode::Char('d') if self.view != View::Diagnostics => self.open_diagnostics(),
+            KeyCode::Char('d')
+                if self.pending_import.is_none() && self.view != View::Diagnostics =>
+            {
+                self.open_diagnostics()
+            }
             KeyCode::Char('g') if self.view == View::Sessions => self.toggle_scope(),
             KeyCode::Char('r') if self.view == View::Sessions => {
                 self.reload(self.listing.scope.clone())
@@ -221,6 +259,9 @@ impl<'a> App<'a> {
     }
 
     fn back(&mut self) {
+        if self.pending_import.take().is_some() {
+            self.loaded = None;
+        }
         self.view = View::Sessions;
         self.scroll = 0;
     }
@@ -298,6 +339,37 @@ impl<'a> App<'a> {
 
     fn handle_prompt(&mut self, key: KeyEvent) {
         match self.prompt.take().expect("prompt") {
+            Prompt::Import { mut input } => match key.code {
+                KeyCode::Esc => {}
+                KeyCode::Enter => {
+                    let path = expand(input.trim(), &self.cwd, &self.config.home);
+                    match crate::imports::preview(&path, self.limits) {
+                        Ok((b, t)) => {
+                            self.loaded = Some(Loaded {
+                                reference: t.session.reference.clone(),
+                                title: t.session.title.clone().unwrap_or_default(),
+                                text: t.markdown(),
+                                messages: t.turns.len(),
+                            });
+                            self.pending_import = Some(b);
+                            self.view = View::Preview;
+                            self.scroll = 0;
+                            self.status = None;
+                        }
+                        Err(e) => self.set(Tone::Error, format!("Import: {e:#}")),
+                    }
+                }
+                code => {
+                    match code {
+                        KeyCode::Backspace => {
+                            input.pop();
+                        }
+                        KeyCode::Char(c) => input.push(c),
+                        _ => {}
+                    }
+                    self.prompt = Some(Prompt::Import { input });
+                }
+            },
             Prompt::Export { mut input } => match key.code {
                 KeyCode::Esc => self.set(Tone::Info, "Export cancelled"),
                 KeyCode::Enter => self.submit_export(input),
@@ -334,6 +406,22 @@ impl<'a> App<'a> {
             return;
         }
         let path = expand(trimmed, &self.cwd, &self.config.home);
+        let dest = path.canonicalize().ok();
+        if let Some(loaded) = &self.loaded
+            && let Some(dest) = dest.as_ref()
+        {
+            let origin = &loaded.reference.path;
+            if origin.canonicalize().as_ref().ok() == Some(dest)
+                || (loaded.reference.source == "bookmark-v1"
+                    && crate::imports::original(origin).as_ref() == Some(dest))
+            {
+                self.set(
+                    Tone::Error,
+                    "Choose an export path different from the source",
+                );
+                return;
+            }
+        }
         if path.is_dir() {
             self.set(Tone::Error, format!("{} is a directory", path.display()));
             self.prompt = Some(Prompt::Export { input });
@@ -455,6 +543,9 @@ pub fn diagnostics(config: &Config, listing: &Listing) -> Vec<Line> {
     match status::collect(config) {
         Ok(entries) => {
             for entry in entries {
+                let Some(instructions) = &entry.instructions else {
+                    continue;
+                };
                 let tone = match entry.sync.as_str() {
                     "synced" => Tone::Ok,
                     _ if !entry.detected => Tone::Info,
@@ -465,7 +556,7 @@ pub fn diagnostics(config: &Config, listing: &Listing) -> Vec<Line> {
                     format!(
                         "  {:<7} {}  {}",
                         entry.provider,
-                        display_path(&entry.instructions, home),
+                        display_path(instructions, home),
                         if entry.detected {
                             entry.sync
                         } else {

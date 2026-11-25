@@ -1,0 +1,34 @@
+{
+  "info": {
+    "id": "ses_example",
+    "version": "1.18.3",
+    "directory": "/example/project",
+    "title": "Example export"
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "id": "user"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "user fixture text"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "id": "assistant"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "assistant fixture text"
+        }
+      ]
+    }
+  ]
+}

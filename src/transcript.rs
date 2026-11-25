@@ -61,7 +61,7 @@ pub fn load(config: &Config, session: &SessionMeta, limits: Limits) -> Result<Tr
     ))
 }
 
-fn fit(
+pub(crate) fn fit(
     session: SessionMeta,
     mut turns: Vec<Turn>,
     max_chars: usize,
@@ -105,6 +105,11 @@ fn fit(
 impl Transcript {
     /// The exact text shown in the preview, copied to the clipboard, exported, and printed by `tail`.
     pub fn markdown(&self) -> String {
+        if let [turn] = self.turns.as_slice()
+            && turn.role == "document"
+        {
+            return turn.text.clone();
+        }
         let s = &self.session;
         let mut out = format!("# {} session", display_name(s.reference.provider));
         if let Some(title) = &s.title {
@@ -209,6 +214,7 @@ mod tests {
     fn meta() -> SessionMeta {
         SessionMeta {
             reference: SessionRef {
+                source: "projects",
                 provider: "claude",
                 path: "/s.jsonl".into(),
             },

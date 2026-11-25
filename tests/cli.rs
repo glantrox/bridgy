@@ -276,12 +276,7 @@ fn installer_handles_spaces_and_leaves_configs_untouched_on_invalid_input() {
         .unwrap();
     let installed = Command::new("sh")
         .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/install.sh"))
-        .args([
-            "--binary",
-            env!("CARGO_BIN_EXE_bridgy"),
-            "--providers",
-            "claude,codex",
-        ])
+        .args(["--binary", env!("CARGO_BIN_EXE_bridgy")])
         .env("BRIDGY_HOME", temp.path())
         .output()
         .unwrap();
@@ -291,6 +286,11 @@ fn installer_handles_spaces_and_leaves_configs_untouched_on_invalid_input() {
         String::from_utf8_lossy(&installed.stderr)
     );
     assert!(temp.path().join(".local/bin/bridgy").exists());
+    assert!(!temp.path().join(".claude").exists());
+    assert!(!temp.path().join(".codex").exists());
+    assert!(!temp.path().join(".bridgy").exists());
+    // Handoff setup remains a separate, explicit action.
+    ok(temp.path(), &["install", "--providers", "claude,codex"]);
     ok(temp.path(), &["doctor"]);
     let invalid = Command::new("sh")
         .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/install.sh"))
@@ -299,6 +299,101 @@ fn installer_handles_spaces_and_leaves_configs_untouched_on_invalid_input() {
         .output()
         .unwrap();
     assert!(!invalid.status.success());
+}
+
+#[cfg(unix)]
+#[test]
+fn installer_path_commands_work_in_fresh_shells_outside_the_repo() {
+    for shell in ["/bin/bash", "/bin/zsh"] {
+        if !Path::new(shell).exists() {
+            continue;
+        }
+        let temp = tempfile::Builder::new()
+            .prefix("installer '$dollar `literal` ")
+            .tempdir()
+            .unwrap();
+        let home = temp.path();
+        let destination = home.join("custom bin");
+        let environment = |cmd: &mut Command| {
+            cmd.env("HOME", home)
+                .env("BRIDGY_HOME", home)
+                .env("SHELL", shell)
+                .env_remove("ZDOTDIR")
+                .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin");
+        };
+        let mut installer = Command::new("sh");
+        environment(&mut installer);
+        let output = installer
+            .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/install.sh"))
+            .args(["--binary", env!("CARGO_BIN_EXE_bridgy"), "--bin-dir"])
+            .arg(&destination)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert!(stdout.contains("not on PATH"));
+        // Execute exactly the persisted setup commands the installer prints.
+        for setup in stdout.lines().filter(|line| line.starts_with("  printf ")) {
+            let mut command = Command::new("sh");
+            environment(&mut command);
+            assert!(command.args(["-c", setup]).status().unwrap().success());
+        }
+        for mode in ["-ic", "-lic"] {
+            let mut command = Command::new(shell);
+            environment(&mut command);
+            let version = command
+                .current_dir(home)
+                .args([mode, "bridgy --version"])
+                .output()
+                .unwrap();
+            assert!(
+                version.status.success(),
+                "{}",
+                String::from_utf8_lossy(&version.stderr)
+            );
+            assert!(String::from_utf8_lossy(&version.stdout).contains("bridgy 0.1.0"));
+        }
+        assert!(!home.join(".bridgy").exists());
+        assert!(!home.join(".claude").exists());
+        let path = format!("{}:/usr/bin:/bin", destination.display());
+        let again = installer.env("PATH", path).output().unwrap();
+        assert!(again.status.success());
+        let stdout = String::from_utf8(again.stdout).unwrap();
+        assert!(stdout.contains("already on PATH"));
+        assert!(!stdout.contains("export PATH="));
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_manual_install_copies_command_without_enabling_handoffs() {
+    let temp = TempDir::new().unwrap();
+    let destination = temp.path().join("custom bin");
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"])
+        .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/install.ps1"))
+        .args(["-Binary", env!("CARGO_BIN_EXE_bridgy"), "-BinDir"])
+        .arg(&destination)
+        .env("BRIDGY_HOME", temp.path())
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("SetEnvironmentVariable"));
+    let version = Command::new(destination.join("bridgy.exe"))
+        .arg("--version")
+        .current_dir(temp.path())
+        .output()
+        .unwrap();
+    assert!(version.status.success());
+    assert!(!temp.path().join(".bridgy").exists());
 }
 
 #[test]
@@ -445,7 +540,6 @@ esac
         fs::create_dir(&home).unwrap();
         let output = Command::new("sh")
             .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/install.sh"))
-            .args(["--providers", "claude,codex"])
             .env("PATH", &path)
             .env("BRIDGY_HOME", &home)
             .env("BRIDGY_REPO", "test/bridgy")
@@ -465,6 +559,8 @@ esac
                 String::from_utf8_lossy(&output.stderr)
             );
             assert!(home.join(".local/bin/bridgy").exists());
+            assert!(!home.join(".claude").exists());
+            assert!(!home.join(".bridgy").exists());
         }
     }
 }

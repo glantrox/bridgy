@@ -417,7 +417,11 @@ fn unfamiliar_json_is_reported_as_unsupported_by_every_provider() {
         },
     );
     assert!(listing.sessions.is_empty());
-    for report in listing.reports {
+    for report in listing
+        .reports
+        .into_iter()
+        .filter(|r| matches!(r.provider, "claude" | "codex" | "gemini"))
+    {
         assert!(
             matches!(report.state(), StoreState::Unsupported),
             "{}",

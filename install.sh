@@ -5,19 +5,18 @@ set -eu
 die() { printf 'bridgy installer: %s\n' "$*" >&2; exit 1; }
 usage() {
     cat <<'HELP'
-Usage: sh install.sh [--binary PATH | --from-source] [--providers claude,codex] [--bin-dir DIR] [--link-codex]
+Usage: sh install.sh [--binary PATH | --from-source] [--bin-dir DIR]
 
 Without --binary/--from-source, download a checksummed GitHub release.
 Set BRIDGY_REPO=owner/repository and optionally BRIDGY_VERSION=v0.1.0.
-BRIDGY_HOME overrides HOME for both provider configs and the default bin directory.
+Installs only the command. Run `bridgy install` separately to enable agent handoffs.
+BRIDGY_HOME overrides HOME for the default bin directory (~/.local/bin).
 No sudo, Python, Node, MCP server, or Rust toolchain is needed for release installs.
 HELP
 }
 
 binary=
 source_build=false
-providers=
-link_codex=false
 bridgy_home=${BRIDGY_HOME:-${HOME:-}}
 [ -n "$bridgy_home" ] || die 'HOME is unset; set BRIDGY_HOME'
 bin_dir=$bridgy_home/.local/bin
@@ -25,9 +24,8 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --binary) [ "$#" -ge 2 ] || die '--binary requires a path'; binary=$2; shift 2 ;;
         --from-source) source_build=true; shift ;;
-        --providers) [ "$#" -ge 2 ] || die '--providers requires a list'; providers=$2; shift 2 ;;
         --bin-dir) [ "$#" -ge 2 ] || die '--bin-dir requires a directory'; bin_dir=$2; shift 2 ;;
-        --link-codex) link_codex=true; shift ;;
+        --providers|--link-codex) die 'handoff options moved to `bridgy install`; install the command first' ;;
         -h|--help) usage; exit 0 ;;
         *) die "unknown option: $1" ;;
     esac
@@ -82,8 +80,56 @@ if [ -z "$binary" ]; then
 fi
 
 [ -f "$binary" ] && [ -x "$binary" ] || die "binary is missing or not executable: $binary"
-set -- --home "$bridgy_home" install --bin-dir "$bin_dir"
-if [ -n "$providers" ]; then set -- "$@" --providers "$providers"; fi
-if [ "$link_codex" = true ]; then set -- "$@" --link-codex; fi
-"$binary" "$@"
-printf '\nInstalled Bridgy. Add this directory to PATH: %s\n' "$bin_dir"
+mkdir -p "$bin_dir"
+[ -w "$bin_dir" ] || die "directory is not writable: $bin_dir"
+[ ! -d "$bin_dir/bridgy" ] || die "destination is a directory: $bin_dir/bridgy"
+# Stage beside the target so upgrades also work while an old executable is running.
+staged=$(mktemp "$bin_dir/.bridgy-install.XXXXXXXX")
+trap 'rm -f -- "$staged"; if [ -n "${temp_dir:-}" ]; then rm -rf -- "$temp_dir"; fi' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+cp "$binary" "$staged"
+chmod 755 "$staged"
+mv -f "$staged" "$bin_dir/bridgy"
+printf '\nInstalled command: %s/bridgy\n' "$bin_dir"
+
+# Quote paths as shell literals, including spaces, apostrophes, and dollar signs.
+shell_quote() {
+    printf "'"
+    printf '%s' "$1" | sed "s/'/'\\\\''/g"
+    printf "'"
+}
+case ":${PATH:-}:" in
+    *":$bin_dir:"*) printf 'The installation directory is already on PATH.\n' ;;
+    *)
+        quoted_dir=$(shell_quote "$bin_dir")
+        printf '\nThis directory is not on PATH. Run:\n'
+        case "${SHELL:-sh}" in
+            */fish)
+                printf '  fish_add_path --universal %s\n' "$quoted_dir"
+                ;;
+            *)
+                setup="export PATH=$quoted_dir:\"\$PATH\""
+                printf '  %s\n' "$setup"
+                printf 'For fresh terminals, also run:\n'
+                case "${SHELL:-sh}" in
+                    */zsh) rc=${ZDOTDIR:-${HOME:-$bridgy_home}}/.zshrc ;;
+                    */bash)
+                        rc=${HOME:-$bridgy_home}/.bashrc
+                        login_rc=${HOME:-$bridgy_home}/.profile
+                        for name in .bash_profile .bash_login; do
+                            if [ -f "${HOME:-$bridgy_home}/$name" ]; then
+                                login_rc=${HOME:-$bridgy_home}/$name
+                                break
+                            fi
+                        done
+                        printf "  printf '%%s\\\\n' %s >> %s\n" "$(shell_quote "$setup")" "$(shell_quote "$login_rc")"
+                        ;;
+                    *) rc=${HOME:-$bridgy_home}/.profile ;;
+                esac
+                printf "  printf '%%s\\\\n' %s >> %s\n" "$(shell_quote "$setup")" "$(shell_quote "$rc")"
+                ;;
+        esac
+        ;;
+esac
+printf '\nOpen a fresh terminal, then run: bridgy --version\nLaunch the browser: bridgy\nOptional agent handoffs: bridgy install\n'

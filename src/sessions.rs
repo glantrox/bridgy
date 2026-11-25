@@ -18,6 +18,7 @@ use std::{
 /// A stable reference: the provider plus the session file it wrote.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionRef {
+    pub source: &'static str,
     pub provider: &'static str,
     pub path: PathBuf,
 }
@@ -225,6 +226,7 @@ pub fn list(config: &Config, scope: &Scope, options: ListOptions) -> Listing {
                             .unwrap_or_default()
                     }),
                     reference: SessionRef {
+                        source: source.id(),
                         provider: provider.id(),
                         path: file.path,
                     },
@@ -295,6 +297,7 @@ pub fn describe_file(config: &Config, provider: &dyn Provider, path: &Path) -> S
         .unwrap_or_default();
     SessionMeta {
         reference: SessionRef {
+            source: source.id(),
             provider: provider.id(),
             path: path.to_owned(),
         },
@@ -310,13 +313,16 @@ pub fn describe_file(config: &Config, provider: &dyn Provider, path: &Path) -> S
 
 /// Read the exact referenced session; never re-resolves "newest".
 pub fn read(
-    config: &Config,
+    _config: &Config,
     session: &SessionRef,
     count: usize,
     max_bytes: u64,
 ) -> Result<TailResult> {
     let provider = providers::find(session.provider)?;
     provider
-        .source_for(config, &session.path)
+        .sources()
+        .into_iter()
+        .find(|src| src.id() == session.source)
+        .ok_or_else(|| anyhow::anyhow!("unknown source {}", session.source))?
         .read(&session.path, count, max_bytes)
 }

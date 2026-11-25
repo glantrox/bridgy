@@ -11,7 +11,9 @@ pub fn run(config: &Config, out: &mut dyn Write) -> Result<()> {
     let mut edits = Vec::new();
     let mut seen = HashSet::new();
     for provider in providers::registry() {
-        let path = provider.instructions(config);
+        let Some(path) = provider.instructions(config) else {
+            continue;
+        };
         if !seen.insert(config::target_path(&path)?) {
             continue;
         }

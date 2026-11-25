@@ -10,19 +10,47 @@ From this checkout, with Rust installed:
 
 ```sh
 sh install.sh --from-source
-export PATH="$HOME/.local/bin:$PATH"
-bridgy status
+# If PATH setup commands are printed, run them, then open a fresh terminal.
+bridgy --version
 bridgy
-bridgy tail claude
 ```
 
-The installer detects existing `~/.claude`, `~/.codex`, and `~/.gemini` directories. To initialize instructions before those directories exist:
+This installs only the executable, normally into `~/.local/bin`. It works even before you have used any agent. If the destination is absent from `PATH`, the installer prints exact commands for your shell and directory, including setup for fresh terminals. Override the destination with `--bin-dir /your/user-writable/bin`.
+
+To enable agent handoffs afterward:
 
 ```sh
-sh install.sh --from-source --providers claude,codex
+bridgy install                         # Detect existing agent folders
+bridgy install --providers claude,codex # Or initialize specific providers
 ```
 
 Then ask your next agent: **“Continue from Claude's latest conversation.”** It can run `bridgy tail claude -n 40` using its normal shell tool. Restart an already-running agent if it does not reload global instructions.
+
+### Cargo installation
+
+```sh
+cargo install --path . --locked
+```
+
+Cargo normally installs `bridgy` into `~/.cargo/bin` (`CARGO_HOME` or Cargo's install-root settings can change this). This also installs only the command. If that directory is missing from `PATH`, for the default Cargo destination use:
+
+```sh
+export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+```
+
+For fresh zsh terminals, persist it with:
+
+```sh
+printf '%s\n' 'export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"' >> "${ZDOTDIR:-$HOME}/.zshrc"
+```
+
+For Bash, put the same `export` line in `~/.bashrc` and your login startup file (`~/.bash_profile`, `~/.bash_login`, or `~/.profile`, whichever Bash uses). For Fish, run `fish_add_path --universal "$HOME/.cargo/bin"`, adjusting the directory if you changed Cargo's install root.
+
+### Homebrew and WinGet
+
+The release workflow generates a Homebrew formula using `bin.install "bridgy"` and WinGet manifests for a portable Windows ZIP containing `bridgy.exe`, registered with the command alias `bridgy`. Neither package enables agent handoffs. Homebrew exposes the command through its own `bin` directory; WinGet manages the portable command link.
+
+**These packages have not been published to a tap or WinGet catalog yet.** Release artifacts and maintainer publication steps are described in [packaging/README.md](packaging/README.md). No username, Homebrew prefix, or nonexistent release URL is embedded in the package definitions.
 
 ### Browse and transfer a conversation
 
@@ -60,7 +88,15 @@ The binary must be executable (`chmod +x ./bridgy-aarch64-apple-darwin`). The in
 BRIDGY_REPO=OWNER/REPOSITORY sh install.sh
 ```
 
-**Release setup is required:** replace `OWNER/REPOSITORY` with the repository hosting Bridgy releases. This checkout has no assigned GitHub remote or published release. After publishing a `v0.1.0` tag, the included release workflow builds macOS/Linux binaries for Intel/AMD64 and ARM64 and uploads per-binary SHA-256 files. Maintainers can distribute `install.sh` from that release. Use `BRIDGY_VERSION=v0.1.0` to pin the download.
+**Release setup is required:** replace `OWNER/REPOSITORY` with the repository hosting Bridgy releases. This checkout has no assigned GitHub remote or published release. After publishing a `v0.1.0` tag, the included release workflow builds macOS/Linux binaries for Intel/AMD64 and ARM64 and a Windows x64 ZIP, with SHA-256 files and generated package definitions. Maintainers can distribute `install.sh` from that release. Use `BRIDGY_VERSION=v0.1.0` to pin the download.
+
+For a manually downloaded Windows executable, run the included PowerShell installer:
+
+```powershell
+.\install.ps1 -Binary .\bridgy.exe
+```
+
+It copies the executable into your local application-data directory and prints exact PowerShell PATH setup commands when needed. `-BinDir` selects another user-writable directory. Open a fresh terminal afterward; run `bridgy install` only when you want to enable handoffs.
 
 Release installation needs a POSIX shell, `curl`, `sha256sum` or `shasum`, and standard system utilities. The installed binary needs no Python, Node, Rust toolchain, or other application runtime. Checksums detect corruption; they are downloaded from the same release and are not an independent signature.
 
@@ -98,7 +134,6 @@ bridgy --workspace /path/to/project
 bridgy --global                        # Browse every workspace
 bridgy install                         # Detect providers and sync the shared protocol
 bridgy install --providers claude,codex # Also initialize selected providers
-bridgy install --bin-dir "$HOME/.local/bin"
 bridgy tail claude -n 40               # Last 40 individual messages, oldest first
 bridgy tail chatgpt --json             # chatgpt is an alias for codex
 bridgy tail gemini                     # Replay Gemini sessions, including patches
@@ -116,7 +151,7 @@ bridgy uninstall
 
 `tail` chooses the recognized session with the newest modification time **in the current checkout**, using the same workspace resolver as the picker. It never silently falls back to another project. Use `--workspace` for another checkout, `--global` to include all projects, or `--file` for one exact session; these overrides are mutually exclusive. Claude's nested subagent logs are excluded from discovery. Output identifies the provider, workspace, and source path. Modification-time ties are resolved by path. One “turn” here is one user or assistant text message, not a question/answer pair. Output is in file order; IDs deduplicate repeated Claude/Codex message records.
 
-Home resolution is `--home` > `BRIDGY_HOME` > `HOME`. All three providers use the default paths below beneath that home. Provider-specific environment overrides such as `CODEX_HOME` are not currently read. For an isolated trial:
+Home resolution is `--home` > `BRIDGY_HOME` > `HOME` (on Windows, `USERPROFILE` is preferred over `HOME`). All three providers use the default paths below beneath that home. Provider-specific environment overrides such as `CODEX_HOME` are not currently read. For an isolated trial:
 
 ```sh
 demo_home=$(mktemp -d)
@@ -144,8 +179,7 @@ The canonical protocol is `~/.bridgy/PROTOCOL.md`. Bridgy copies it between `<!-
 Independent instruction files are the default so Claude-specific and Codex-specific rules can coexist. If you want the original shared-file approach, Bridgy can automatically create a **new** Codex symlink:
 
 ```sh
-sh install.sh --from-source --link-codex
-# Or: bridgy install --link-codex
+bridgy install --link-codex
 ```
 
 This links `~/.codex/AGENTS.md` to `../.claude/CLAUDE.md` and initializes both providers. It refuses to replace an existing Codex file or a link to a different target. Future edits through either path then affect both agents. Uninstall strips the managed block but retains the link and user content.
@@ -195,7 +229,7 @@ cargo build --locked --release
 sh -n install.sh
 ```
 
-CI is configured for macOS and Linux; tagged releases build four targets. Those hosted workflows need to run after the repository is published. There is no telemetry, network access in the binary, or automatic memory-save hook.
+CI is configured for macOS, Linux, and Windows; tagged releases build five targets. Those hosted workflows need to run after the repository is published. There is no telemetry, network access in the binary, or automatic memory-save hook.
 
 ## License
 

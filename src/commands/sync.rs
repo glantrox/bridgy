@@ -13,16 +13,23 @@ pub struct Plan {
 
 pub fn plan(config: &Config, selected: &[Box<dyn Provider>], regenerate: bool) -> Result<Plan> {
     let existing = config::read_optional(&config.protocol())?;
+    let sources: Vec<_> = providers::registry()
+        .into_iter()
+        .filter(|p| p.instructions_name().is_none() && p.detected(config))
+        .collect();
+    let generate = || protocol::generate(selected.iter().chain(&sources).map(AsRef::as_ref));
     let protocol = if regenerate {
-        protocol::generate(selected)
+        generate()
     } else {
-        existing.unwrap_or_else(|| protocol::generate(selected))
+        existing.unwrap_or_else(generate)
     };
     let block = config::render_block(&protocol)?;
     let mut edits = Vec::new();
     let mut seen = HashSet::new();
     for provider in selected {
-        let path = provider.instructions(config);
+        let Some(path) = provider.instructions(config) else {
+            continue;
+        };
         let target = config::target_path(&path)?;
         if !seen.insert(target.clone()) {
             continue;
@@ -59,7 +66,7 @@ pub fn run(config: &Config, regenerate: bool, out: &mut dyn Write) -> Result<()>
     );
     let selected = providers::registry()
         .into_iter()
-        .filter(|p| p.detected(config))
+        .filter(|p| p.detected(config) && p.instructions_name().is_some())
         .collect::<Vec<_>>();
     ensure!(!selected.is_empty(), "no providers detected");
     apply(config, plan(config, &selected, regenerate)?, out)

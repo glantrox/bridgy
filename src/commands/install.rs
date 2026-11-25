@@ -1,23 +1,24 @@
 use super::sync;
 use crate::{
-    config::{Config, write_atomic},
+    config::Config,
     providers::{self, Provider},
 };
-use anyhow::{Context, Result, ensure};
-use std::{collections::HashSet, fs, io::Write, path::Path};
+use anyhow::{Result, ensure};
+use std::{collections::HashSet, fs, io::Write};
 
 pub fn run(
     config: &Config,
     requested: &[String],
-    bin_dir: Option<&Path>,
     link_codex: bool,
     out: &mut dyn Write,
 ) -> Result<()> {
+    #[cfg(not(unix))]
+    ensure!(!link_codex, "--link-codex is supported only on Unix");
     let _lock = config.lock()?;
     config.check_state_dir()?;
     let mut selected: Vec<Box<dyn Provider>> = providers::registry()
         .into_iter()
-        .filter(|p| p.detected(config))
+        .filter(|p| p.detected(config) && p.instructions_name().is_some())
         .collect();
     let mut ids: HashSet<_> = selected.iter().map(|p| p.id()).collect();
     let requested = requested.iter().map(String::as_str).chain(if link_codex {
@@ -27,6 +28,10 @@ pub fn run(
     });
     for name in requested {
         let provider = providers::find(name)?;
+        ensure!(
+            provider.instructions_name().is_some(),
+            "{name} has no verified receiver setup"
+        );
         if ids.insert(provider.id()) {
             selected.push(provider);
         }
@@ -39,8 +44,6 @@ pub fn run(
     let mut plan = sync::plan(config, &selected, false)?;
     let codex_path = config.home.join(".codex/AGENTS.md");
     let create_link = if link_codex {
-        #[cfg(not(unix))]
-        anyhow::bail!("--link-codex is supported only on Unix");
         if codex_path.is_symlink() {
             ensure!(
                 fs::canonicalize(&codex_path)?
@@ -59,19 +62,6 @@ pub fn run(
     } else {
         false
     };
-    if let Some(dir) = bin_dir {
-        let current = std::env::current_exe().context("locate running executable")?;
-        let target = dir.join("bridgy");
-        if fs::canonicalize(&target).ok().as_ref() != Some(&current) {
-            write_atomic(&target, &fs::read(&current)?, true)?;
-            fs::set_permissions(&target, fs::metadata(&current)?.permissions())?;
-        }
-        writeln!(
-            out,
-            "Executable: {} (add this directory to PATH)",
-            target.display()
-        )?;
-    }
     sync::apply(config, plan, out)?;
     if create_link {
         fs::create_dir_all(config.home.join(".codex"))?;

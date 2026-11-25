@@ -17,6 +17,13 @@ pub struct Config {
 impl Config {
     pub fn resolve(home: Option<PathBuf>) -> Result<Self> {
         let home = home
+            .or_else(|| {
+                if cfg!(windows) {
+                    std::env::var_os("USERPROFILE").map(PathBuf::from)
+                } else {
+                    None
+                }
+            })
             .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
             .context("HOME is unset; pass --home")?;
         ensure!(

@@ -21,8 +21,8 @@ impl Provider for Claude {
     fn directory(&self) -> &'static str {
         ".claude"
     }
-    fn instructions_name(&self) -> &'static str {
-        "CLAUDE.md"
+    fn instructions_name(&self) -> Option<&'static str> {
+        Some("CLAUDE.md")
     }
     fn sources(&self) -> Vec<Box<dyn SessionSource>> {
         // The CLI, VS Code, and desktop clients share one store; `entrypoint` names the client.
@@ -129,6 +129,9 @@ impl Scan {
 }
 
 impl SessionSource for Projects {
+    fn id(&self) -> &'static str {
+        "projects"
+    }
     fn root(&self, config: &Config) -> PathBuf {
         config.home.join(".claude/projects")
     }

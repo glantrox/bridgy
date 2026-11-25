@@ -40,6 +40,9 @@ pub fn checks(config: &Config) -> Result<Vec<Check>> {
             );
             continue;
         }
+        if entry.instructions.is_none() {
+            continue;
+        }
         if entry.sync != "synced" {
             push(
                 Level::Fail,
@@ -54,7 +57,7 @@ pub fn checks(config: &Config) -> Result<Vec<Check>> {
         for warning in entry.warnings {
             push(Level::Fail, format!("FAIL {}: {warning}", entry.provider));
         }
-        let target = config::target_path(&entry.instructions)?;
+        let target = config::target_path(entry.instructions.as_deref().unwrap())?;
         for path in [Some(target.as_path()), target.parent()]
             .into_iter()
             .flatten()
@@ -71,6 +74,7 @@ pub fn checks(config: &Config) -> Result<Vec<Check>> {
         if let Some(path) = entry.newest_session {
             let provider = providers::find(&entry.provider)?;
             let session = SessionRef {
+                source: provider.source_for(config, &path).id(),
                 provider: provider.id(),
                 path,
             };
@@ -101,7 +105,28 @@ pub fn checks(config: &Config) -> Result<Vec<Check>> {
 }
 
 pub fn run(config: &Config, out: &mut dyn Write) -> Result<()> {
-    let checks = checks(config)?;
+    let mut checks = checks(config)?;
+    let scope = crate::workspace::Scope::current(None, false)?;
+    for report in sessions::list(
+        config,
+        &scope,
+        sessions::ListOptions {
+            provider: None,
+            titles: false,
+        },
+    )
+    .reports
+    {
+        let level = match report.state() {
+            sessions::StoreState::Unreadable => Level::Fail,
+            sessions::StoreState::Unsupported => Level::Warn,
+            _ => Level::Ok,
+        };
+        checks.push(Check {
+            level,
+            line: report.describe(&scope),
+        });
+    }
     for check in &checks {
         writeln!(out, "{}", check.line)?;
     }

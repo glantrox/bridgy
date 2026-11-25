@@ -25,8 +25,8 @@ impl Provider for Codex {
     fn directory(&self) -> &'static str {
         ".codex"
     }
-    fn instructions_name(&self) -> &'static str {
-        "AGENTS.md"
+    fn instructions_name(&self) -> Option<&'static str> {
+        Some("AGENTS.md")
     }
     fn sources(&self) -> Vec<Box<dyn SessionSource>> {
         // The CLI and the VS Code extension write the same rollout format; session_meta names the client.
@@ -100,6 +100,9 @@ impl Rollouts {
 }
 
 impl SessionSource for Rollouts {
+    fn id(&self) -> &'static str {
+        "rollouts"
+    }
     fn root(&self, config: &Config) -> PathBuf {
         config.home.join(".codex/sessions")
     }

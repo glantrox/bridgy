@@ -1,5 +1,6 @@
 mod claude;
 mod codex;
+mod expansion;
 mod gemini;
 
 use crate::{config::Config, tail::TailResult};
@@ -27,14 +28,18 @@ pub trait Provider {
     fn id(&self) -> &'static str;
     fn aliases(&self) -> &'static [&'static str];
     fn directory(&self) -> &'static str;
-    fn instructions_name(&self) -> &'static str;
+    fn instructions_name(&self) -> Option<&'static str> {
+        None
+    }
     /// History stores. Terminal and editor clients share a source when their logs are compatible.
     fn sources(&self) -> Vec<Box<dyn SessionSource>>;
-    fn instructions(&self, config: &Config) -> PathBuf {
-        config
-            .home
-            .join(self.directory())
-            .join(self.instructions_name())
+    fn instructions(&self, config: &Config) -> Option<PathBuf> {
+        Some(
+            config
+                .home
+                .join(self.directory())
+                .join(self.instructions_name()?),
+        )
     }
     fn detected(&self, config: &Config) -> bool {
         config.home.join(self.directory()).is_dir()
@@ -61,6 +66,7 @@ pub struct Header {
 
 /// One on-disk history store and its format-specific parsing.
 pub trait SessionSource {
+    fn id(&self) -> &'static str;
     fn root(&self, config: &Config) -> PathBuf;
     fn accepts(&self, path: &Path) -> bool;
     /// `Ok(None)` means the file is not in a format this source understands.
@@ -77,6 +83,9 @@ pub fn registry() -> Vec<Box<dyn Provider>> {
         Box::new(claude::Claude),
         Box::new(codex::Codex),
         Box::new(gemini::Gemini),
+        Box::new(expansion::Copilot),
+        Box::new(expansion::Cline),
+        Box::new(crate::imports::Imports),
     ]
 }
 
@@ -87,7 +96,9 @@ pub fn find(name: &str) -> Result<Box<dyn Provider>> {
             p.id().eq_ignore_ascii_case(name)
                 || p.aliases().iter().any(|a| a.eq_ignore_ascii_case(name))
         })
-        .with_context(|| format!("unknown provider '{name}'; choose claude, codex, or gemini"))
+        .with_context(|| {
+            format!("unknown provider '{name}'; see the compatibility table in README.md")
+        })
 }
 
 /// Only textual content parts are surfaced; tool results, thinking, images and metadata are excluded.

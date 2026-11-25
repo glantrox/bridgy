@@ -59,8 +59,8 @@ impl Provider for Gemini {
     fn directory(&self) -> &'static str {
         ".gemini"
     }
-    fn instructions_name(&self) -> &'static str {
-        "GEMINI.md"
+    fn instructions_name(&self) -> Option<&'static str> {
+        Some("GEMINI.md")
     }
     fn sources(&self) -> Vec<Box<dyn SessionSource>> {
         vec![Box::new(Chats::default())]
@@ -177,6 +177,9 @@ impl Chats {
 }
 
 impl SessionSource for Chats {
+    fn id(&self) -> &'static str {
+        "chats"
+    }
     fn root(&self, config: &Config) -> PathBuf {
         config.home.join(".gemini/tmp")
     }

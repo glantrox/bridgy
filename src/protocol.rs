@@ -1,6 +1,6 @@
 use crate::providers::Provider;
 
-pub fn generate(providers: &[Box<dyn Provider>]) -> String {
+pub fn generate<'a>(providers: impl IntoIterator<Item = &'a dyn Provider>) -> String {
     let mut text = String::from(
         "# Bridgy: passive cross-CLI context\n\n\
 Agents already persist sessions automatically. During normal chat and coding, do not call memory tools or write duplicate summaries just to save history. Bridgy adds no model calls or save-time tokens.\n\n\

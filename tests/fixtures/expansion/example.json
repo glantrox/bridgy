@@ -1,0 +1,9 @@
+{
+  "session_id": "example",
+  "version": 1,
+  "cwd": "/example/project",
+  "source": "vscode",
+  "metadata": {
+    "title": "Example task"
+  }
+}

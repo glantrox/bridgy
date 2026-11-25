@@ -36,14 +36,20 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Preview a Markdown or supported JSON export. Add --save to remember its path.
+    Import {
+        path: PathBuf,
+        #[arg(long)]
+        save: bool,
+        /// Associate the saved reference with the selected checkout
+        #[arg(long, requires = "save", conflicts_with = "global")]
+        here: bool,
+    },
     /// Detect providers, back up instructions, and install the shared protocol
     Install {
         /// Set up these providers even if their directories do not exist
         #[arg(long, value_delimiter = ',')]
         providers: Vec<String>,
-        /// Also copy this executable into a directory (for example ~/.local/bin)
-        #[arg(long)]
-        bin_dir: Option<PathBuf>,
         /// Link a NEW Codex instruction file to Claude's; never replace an existing file
         #[arg(long)]
         link_codex: bool,
@@ -56,7 +62,7 @@ enum Command {
     },
     /// Print recent user/assistant text from the newest session in the current checkout
     Tail {
-        /// claude, codex (chatgpt), or gemini
+        /// Provider ID, e.g. claude, codex, gemini, copilot, cline, or import
         provider: String,
         /// Number of individual messages, in chronological order
         #[arg(short = 'n', long, default_value_t = 40, value_parser = clap::value_parser!(u32).range(1..=10000))]
@@ -99,17 +105,29 @@ fn run(cli: Cli) -> anyhow::Result<()> {
     };
     let mut out = io::stdout().lock();
     match command {
+        Command::Import { path, save, here } => {
+            use std::io::Write;
+            let (bookmark, preview) = bridgy::imports::preview(&path, Limits::default())?;
+            out.write_all(preview.markdown().as_bytes())?;
+            out.flush()?;
+            if save {
+                let scope = Scope::current(cli.workspace.as_deref(), false)?;
+                bookmark.save(
+                    &config,
+                    if here || cli.workspace.is_some() {
+                        scope.root()
+                    } else {
+                        None
+                    },
+                )?;
+                eprintln!("Remembered {}", bookmark.path.display());
+            }
+            Ok(())
+        }
         Command::Install {
             providers,
-            bin_dir,
             link_codex,
-        } => commands::install::run(
-            &config,
-            &providers,
-            bin_dir.as_deref(),
-            link_codex,
-            &mut out,
-        ),
+        } => commands::install::run(&config, &providers, link_codex, &mut out),
         Command::Sync { regenerate } => commands::sync::run(&config, regenerate, &mut out),
         Command::Tail {
             provider,

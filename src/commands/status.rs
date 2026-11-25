@@ -10,7 +10,7 @@ use std::{io::Write, path::PathBuf};
 pub struct Status {
     pub provider: String,
     pub detected: bool,
-    pub instructions: PathBuf,
+    pub instructions: Option<PathBuf>,
     pub sync: String,
     pub newest_session: Option<PathBuf>,
     pub session_files: u64,
@@ -26,26 +26,30 @@ pub fn collect(config: &Config) -> Result<Vec<Status>> {
     for provider in providers::registry() {
         let mut warnings = Vec::new();
         let instructions = provider.instructions(config);
-        let sync = match config::read_optional(&instructions) {
-            Ok(Some(text)) => match config::block_span(&text) {
-                Ok(Some(span)) => {
-                    if expected.as_deref() == Some(&text[span]) {
-                        "synced"
-                    } else {
-                        "out-of-sync"
+        let sync = if let Some(path) = &instructions {
+            match config::read_optional(path) {
+                Ok(Some(text)) => match config::block_span(&text) {
+                    Ok(Some(span)) => {
+                        if expected.as_deref() == Some(&text[span]) {
+                            "synced"
+                        } else {
+                            "out-of-sync"
+                        }
                     }
-                }
-                Ok(None) => "unmanaged",
+                    Ok(None) => "unmanaged",
+                    Err(e) => {
+                        warnings.push(e.to_string());
+                        "invalid-markers"
+                    }
+                },
+                Ok(None) => "missing",
                 Err(e) => {
-                    warnings.push(e.to_string());
-                    "invalid-markers"
+                    warnings.push(format!("{e:#}"));
+                    "unreadable"
                 }
-            },
-            Ok(None) => "missing",
-            Err(e) => {
-                warnings.push(format!("{e:#}"));
-                "unreadable"
             }
+        } else {
+            "source only"
         }
         .to_owned();
         let inventory = match providers::inventory(provider.as_ref(), config) {

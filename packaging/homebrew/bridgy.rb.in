@@ -1,0 +1,41 @@
+class Bridgy < Formula
+  desc "Browse and transfer local coding-agent conversations"
+  homepage "https://github.com/@REPOSITORY@"
+  version "@VERSION@"
+  license "MIT"
+
+  on_macos do
+    on_arm do
+      url "@BASE_URL@/bridgy-aarch64-apple-darwin.tar.gz"
+      sha256 "@SHA_aarch64-apple-darwin@"
+    end
+    on_intel do
+      url "@BASE_URL@/bridgy-x86_64-apple-darwin.tar.gz"
+      sha256 "@SHA_x86_64-apple-darwin@"
+    end
+  end
+
+  on_linux do
+    on_arm do
+      url "@BASE_URL@/bridgy-aarch64-unknown-linux-musl.tar.gz"
+      sha256 "@SHA_aarch64-unknown-linux-musl@"
+    end
+    on_intel do
+      url "@BASE_URL@/bridgy-x86_64-unknown-linux-musl.tar.gz"
+      sha256 "@SHA_x86_64-unknown-linux-musl@"
+    end
+  end
+
+  def install
+    bin.install "bridgy"
+  end
+
+  def caveats
+    "Run bridgy to browse conversations. Run bridgy install separately to enable agent handoffs."
+  end
+
+  test do
+    assert_match version.to_s, shell_output("#{bin}/bridgy --version")
+    assert_match "Usage:", shell_output("#{bin}/bridgy </dev/null")
+  end
+end

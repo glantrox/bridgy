@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json
+PackageIdentifier: @PACKAGE_ID@
+PackageVersion: @VERSION@
+PackageLocale: en-US
+Publisher: @PUBLISHER@
+PackageName: Bridgy
+PackageUrl: https://github.com/@REPOSITORY@
+License: MIT
+ShortDescription: Browse and transfer local coding-agent conversations
+InstallationNotes: Open a fresh terminal and run bridgy. Run bridgy install separately to enable agent handoffs.
+ManifestType: defaultLocale
+ManifestVersion: 1.10.0

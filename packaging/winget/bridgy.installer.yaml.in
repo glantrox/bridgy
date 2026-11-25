@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+PackageIdentifier: @PACKAGE_ID@
+PackageVersion: @VERSION@
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: bridgy.exe
+    PortableCommandAlias: bridgy
+Scope: user
+Commands:
+  - bridgy
+Installers:
+  - Architecture: x64
+    InstallerUrl: @BASE_URL@/bridgy-x86_64-pc-windows-msvc.zip
+    InstallerSha256: @SHA_x86_64-pc-windows-msvc@
+ManifestType: installer
+ManifestVersion: 1.10.0

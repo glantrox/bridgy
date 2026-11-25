@@ -11,7 +11,7 @@ The package is a single binary and library in a one-member Cargo workspace. Spli
 | Command | Inputs | Effects / output |
 |---|---|---|
 | no subcommand | optional `--workspace`, `--global` | Browse, preview, copy, export; CLI help if stdin or stdout is not a terminal |
-| `install` | detected directories; optional `--providers`, `--bin-dir`, `--link-codex` | Generate protocol if absent, preflight all markers, back up and update instructions; optional binary copy / new Codex symlink |
+| `install` | detected directories; optional `--providers`, `--link-codex` | Generate protocol if absent, preflight all markers, back up and update instructions; optional new Codex symlink |
 | `sync` | canonical protocol; optional `--regenerate` | Reapply existing protocol or explicitly rebuild it from detected providers |
 | `tail PROVIDER` | `-n/--turns` (1–10,000, default 40), `--workspace`, `--global`, `--file`, `--json`, `--max-chars`, `--max-bytes` | Read newest session in scope or explicit file; chronological text messages |
 | `status` | optional `--json` | Detection, marker/protocol equality, newest session, session bytes/count, traversal warnings |
@@ -66,8 +66,8 @@ Schema reference: [Gemini recording types](https://github.com/google-gemini/gemi
 
 ## Distribution and verification
 
-`install.sh` supports local binaries, explicit source builds, or checksummed GitHub release downloads selected by OS/architecture. The actual repository is provided via `BRIDGY_REPO`; no nonexistent canonical release URL is embedded. Downloads are HTTPS-only, verified before execution, and removed on exit. The Rust install command performs the configuration and binary changes, so shell code does not implement a second config writer.
+`install.sh` supports local binaries, explicit source builds, or checksummed GitHub release downloads selected by OS/architecture. The actual repository is provided via `BRIDGY_REPO`; no nonexistent canonical release URL is embedded. Downloads are HTTPS-only, verified before execution, and removed on exit. The shell installer stages only the executable into a user-writable bin directory and prints exact PATH setup commands when needed. The PowerShell installer offers the same separation on Windows. Neither installer touches provider instructions. Only the Rust `bridgy install` command enables handoffs.
 
-CI runs format, check, process/unit tests, Clippy, release build, and shell syntax checks on macOS/Linux. Release automation targets Apple Intel/ARM and Linux Intel/ARM musl binaries. Publishing and cross-target verification require the hosted workflows to run; no release is published by creating these files locally.
+CI runs format, check, process/unit tests, Clippy, and release builds on macOS/Linux/Windows, with shell syntax checks on Unix. Release automation targets Apple Intel/ARM, Linux Intel/ARM musl, and Windows x64. It generates Homebrew and WinGet definitions from real artifact hashes; see packaging/README.md. Publishing and cross-target verification require the hosted workflows to run; no release is published by creating these files locally.
 
 Tests use temporary homes and synthetic fixtures. They exercise provider parsing, corruption, newest-file selection, byte bounds, JSON/stdout/exit contracts, idempotence, backups, exact user-rule preservation, custom protocol sync, symlink safety, concurrent-writer rejection, and installation. No test reads real user histories or changes real global instructions.

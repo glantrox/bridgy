@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "origin": {
+    "source": "vscode",
+    "version": "4.1.26"
+  },
+  "sessionId": "example",
+  "messages": [
+    {
+      "id": "user",
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "user fixture text"
+        }
+      ]
+    },
+    {
+      "id": "assistant",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "assistant fixture text"
+        }
+      ]
+    }
+  ]
+}

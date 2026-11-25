@@ -24,11 +24,21 @@ fn tone(tone: Tone) -> Style {
 }
 
 pub fn draw(frame: &mut Frame, app: &mut App) {
+    if frame.area().width < 40 || frame.area().height < 10 {
+        frame.render_widget(
+            Paragraph::new("Resize to at least 40 × 10.\nq / Ctrl+C quit")
+                .wrap(Wrap { trim: false }),
+            frame.area(),
+        );
+        return;
+    }
+    let keys = keys(app);
+    let footer_height = keys.chars().count().div_ceil(frame.area().width as usize) as u16;
     let [header, body, status, footer] = Layout::vertical([
         Constraint::Length(1),
         Constraint::Min(3),
         Constraint::Length(1),
-        Constraint::Length(1),
+        Constraint::Length(footer_height),
     ])
     .areas(frame.area());
     draw_header(frame, header, app);
@@ -39,7 +49,9 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     }
     draw_status(frame, status, app);
     frame.render_widget(
-        Paragraph::new(keys(app)).style(Style::new().add_modifier(Modifier::DIM)),
+        Paragraph::new(keys)
+            .wrap(Wrap { trim: true })
+            .style(Style::new().add_modifier(Modifier::DIM)),
         footer,
     );
 }
@@ -129,7 +141,9 @@ fn draw_preview(frame: &mut Frame, area: Rect, app: &mut App) {
     let Some(loaded) = &app.loaded else {
         return;
     };
-    let session = app.selected_session();
+    let session = app
+        .selected_session()
+        .filter(|s| s.reference == loaded.reference);
     let mut title = format!(" {} ", display_name(loaded.reference.provider));
     if let Some(surface) = session.and_then(|s| s.surface.as_deref()) {
         title.push_str(&format!("· {surface} "));
@@ -184,6 +198,7 @@ fn scrolling(frame: &mut Frame, area: Rect, app: &mut App, block: Block, text: T
 
 fn draw_status(frame: &mut Frame, area: Rect, app: &App) {
     let line = match &app.prompt {
+        Some(Prompt::Import { input }) => Line::from(format!(" Import path: {input}█")),
         Some(Prompt::Export { input }) => Line::from(vec![
             Span::styled(" Export to: ", Style::new().bold()),
             Span::raw(input.clone()),
@@ -203,10 +218,14 @@ fn draw_status(frame: &mut Frame, area: Rect, app: &App) {
 
 fn keys(app: &App) -> String {
     match (&app.prompt, app.view) {
+        (Some(Prompt::Import { .. }), _) => " Enter preview · Esc cancel".into(),
+        (None, View::Preview) if app.pending_import.is_some() => {
+            " c copy · e export · s remember · a remember here · Esc back · q quit".into()
+        }
         (Some(Prompt::Export { .. }), _) => " Enter save · Esc cancel · Ctrl+U clear".into(),
         (Some(Prompt::Overwrite { .. }), _) => " y overwrite · n choose another path".into(),
         (None, View::Sessions) => format!(
-            " ↑↓ move · Enter preview · c copy · e export · d diagnostics · g {} · r refresh · q quit",
+            " i import · ↑↓ move · Enter preview · c copy · e export · d diagnostics · g {} · r refresh · q quit",
             if app.listing.scope == Scope::Global {
                 "this checkout"
             } else {
@@ -218,5 +237,60 @@ fn keys(app: &App) -> String {
                 .into()
         }
         (None, View::Diagnostics) => " ↑↓ scroll · PgUp/PgDn page · Esc back · q quit".into(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+    use ratatui::{Terminal, backend::TestBackend};
+    use std::fs;
+
+    fn render(app: &mut App, width: u16, height: u16) -> String {
+        let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+        terminal.draw(|frame| draw(frame, app)).unwrap();
+        terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect()
+    }
+
+    #[test]
+    fn renders_empty_preview_diagnostics_and_narrow_terminal() {
+        let temp = tempfile::TempDir::new().unwrap();
+        let config = Config::resolve(Some(temp.path().to_owned())).unwrap();
+        let mut app = App::new(&config, Scope::Global, temp.path().to_owned(), |_| {
+            Ok("test")
+        });
+        assert!(render(&mut app, 80, 24).contains("No sessions"));
+        let store = temp.path().join(".claude/projects/p");
+        fs::create_dir_all(&store).unwrap();
+        fs::write(
+            store.join("s.jsonl"),
+            serde_json::json!({
+                "type":"user", "message":{"content":"A long conversation line. ".repeat(200)}
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let mut app = App::new(&config, Scope::Global, temp.path().to_owned(), |_| {
+            Ok("test")
+        });
+        let picker = render(&mut app, 80, 24);
+        assert!(picker.contains("claude"));
+        assert!(picker.contains("q quit"));
+        app.open_preview();
+        assert!(render(&mut app, 80, 24).contains("## User"));
+        assert!(app.max_scroll > 0);
+        app.scroll = u16::MAX;
+        render(&mut app, 40, 10);
+        assert_eq!(app.scroll, app.max_scroll);
+        app.open_diagnostics();
+        assert!(render(&mut app, 80, 40).contains("Instruction targets"));
+        assert!(render(&mut app, 20, 5).contains("Resize"));
     }
 }
