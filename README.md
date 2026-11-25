@@ -112,6 +112,8 @@ Using Bridgy across multiple machines or collaborating with teammates on the sam
 
 ## Development
 
+For local setup, provider fixtures, and pull requests, see the [contributing guide](CONTRIBUTING.md).
+
 ```sh
 cargo test
 cargo build --release
