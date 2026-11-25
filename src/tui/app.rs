@@ -4,7 +4,7 @@ use crate::{
     commands::{doctor, status},
     config::{self, Config},
     sessions::{self, ListOptions, Listing, SessionMeta, SessionRef, StoreState},
-    transcript::{self, Limits},
+    transcript::{self, Limits, Transcript},
     workspace::{self, Scope},
 };
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -19,6 +19,7 @@ pub enum View {
     Sessions,
     Preview,
     Diagnostics,
+    Help,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,13 +53,24 @@ pub struct Line {
     pub text: String,
 }
 
-/// The rendered transcript of one exact session; preview, copy, and export all use `text`.
+/// A single read supplies both the structured preview and the Markdown for transfer.
 #[derive(Debug, Clone)]
 pub struct Loaded {
     pub reference: SessionRef,
     pub title: String,
     pub text: String,
-    pub messages: usize,
+    pub turns: Vec<crate::providers::Turn>,
+}
+
+impl From<Transcript> for Loaded {
+    fn from(t: Transcript) -> Self {
+        Self {
+            text: t.markdown(),
+            reference: t.session.reference,
+            title: t.session.title.unwrap_or(t.session.id),
+            turns: t.turns,
+        }
+    }
 }
 
 pub type Copier = fn(&str) -> anyhow::Result<&'static str>;
@@ -69,6 +81,10 @@ pub struct App<'a> {
     pub home_scope: Scope,
     pub listing: Listing,
     pub selected: usize,
+    pub(super) list_offset: usize,
+    pub(super) revision: u64,
+    pub(super) preview_error: Option<String>,
+    help_return: (View, u16),
     pub view: View,
     pub loaded: Option<Loaded>,
     pub scroll: u16,
@@ -96,6 +112,10 @@ impl<'a> App<'a> {
                 scope
             },
             selected: 0,
+            list_offset: 0,
+            revision: 0,
+            preview_error: None,
+            help_return: (View::Sessions, 0),
             view: View::Sessions,
             loaded: None,
             scroll: 0,
@@ -154,7 +174,7 @@ impl<'a> App<'a> {
         self.selected = keep
             .and_then(|r| self.listing.sessions.iter().position(|s| s.reference == r))
             .unwrap_or(0);
-        self.loaded = None;
+        self.invalidate_preview();
         self.status = None;
         self.flag_broken_stores();
     }
@@ -175,24 +195,33 @@ impl<'a> App<'a> {
         {
             return true;
         }
-        match transcript::load(self.config, &session, self.limits) {
+        self.accept_preview(transcript::load(self.config, &session, self.limits))
+    }
+
+    pub(super) fn accept_preview(&mut self, result: anyhow::Result<Transcript>) -> bool {
+        match result {
             Ok(t) => {
                 for warning in &t.warnings {
                     self.set(Tone::Warn, warning.clone());
                 }
-                self.loaded = Some(Loaded {
-                    title: session.title.clone().unwrap_or_else(|| session.id.clone()),
-                    reference: session.reference,
-                    messages: t.turns.len(),
-                    text: t.markdown(),
-                });
+                self.preview_error = None;
+                self.loaded = Some(t.into());
                 true
             }
             Err(e) => {
-                self.set(Tone::Error, format!("Could not read session: {e:#}"));
+                let message = format!("Could not read session: {e:#}");
+                self.preview_error = Some(message.clone());
+                self.set(Tone::Error, message);
                 false
             }
         }
+    }
+
+    fn invalidate_preview(&mut self) {
+        self.revision = self.revision.wrapping_add(1);
+        self.loaded = None;
+        self.preview_error = None;
+        self.scroll = 0;
     }
 
     pub fn handle(&mut self, key: KeyEvent) {
@@ -207,7 +236,16 @@ impl<'a> App<'a> {
             self.handle_prompt(key);
             return;
         }
+        let previous = self.selected;
         match key.code {
+            KeyCode::Char('?') | KeyCode::Esc if self.view == View::Help => {
+                (self.view, self.scroll) = self.help_return;
+            }
+            KeyCode::Char('?') => {
+                self.help_return = (self.view, self.scroll);
+                self.view = View::Help;
+                self.scroll = 0;
+            }
             KeyCode::Char('q') => self.quit = true,
             KeyCode::Esc => match self.view {
                 View::Sessions => self.quit = true,
@@ -221,6 +259,7 @@ impl<'a> App<'a> {
             KeyCode::End if self.view != View::Sessions => self.scroll = self.max_scroll,
             KeyCode::Home => self.selected = 0,
             KeyCode::End => self.selected = self.listing.sessions.len().saturating_sub(1),
+            _ if self.view == View::Help => {}
             KeyCode::Enter if self.view == View::Sessions => self.open_preview(),
             KeyCode::Char('i') if self.view == View::Sessions => {
                 self.prompt = Some(Prompt::Import {
@@ -255,6 +294,9 @@ impl<'a> App<'a> {
                 self.reload(self.listing.scope.clone())
             }
             _ => {}
+        }
+        if self.selected != previous {
+            self.invalidate_preview();
         }
     }
 
@@ -298,7 +340,7 @@ impl<'a> App<'a> {
             return;
         }
         let loaded = self.loaded.as_ref().expect("loaded");
-        let (messages, bytes) = (loaded.messages, loaded.text.len());
+        let (messages, bytes) = (loaded.turns.len(), loaded.text.len());
         match (self.copier)(&loaded.text) {
             Ok(tool) => self.set(
                 Tone::Ok,
@@ -345,12 +387,7 @@ impl<'a> App<'a> {
                     let path = expand(input.trim(), &self.cwd, &self.config.home);
                     match crate::imports::preview(&path, self.limits) {
                         Ok((b, t)) => {
-                            self.loaded = Some(Loaded {
-                                reference: t.session.reference.clone(),
-                                title: t.session.title.clone().unwrap_or_default(),
-                                text: t.markdown(),
-                                messages: t.turns.len(),
-                            });
+                            self.loaded = Some(t.into());
                             self.pending_import = Some(b);
                             self.view = View::Preview;
                             self.scroll = 0;

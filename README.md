@@ -29,17 +29,17 @@ To enable one-prompt handoffs, run `bridgy install` once. Then start a fresh ses
 
 ## Browse or export a conversation
 
-Run `bridgy` to see conversations for the current checkout, newest first. Each row is one conversation and shows the provider, last activity, and the title or client surface when available.
+Run `bridgy` to see conversations for the current checkout, newest first. Each session shows its title above the provider, client (when available), and last activity. On terminals at least 80 columns wide, the selected conversation appears on the right after a short pause. On narrower terminals, press Enter to open it.
 
 | Key | Action |
 | --- | --- |
 | ↑ / ↓ | Move through the session list |
-| Enter | Preview the selected conversation |
+| Enter / Esc | Focus the preview / return to the list |
 | `c` | Copy the preview |
 | `e` | Export the preview as Markdown |
-| `d` | Open diagnostics |
+| `?` | Show all shortcuts, including diagnostics, workspace switching, and import |
 
-Copy and export use the exact previewed text. Bridgy asks before overwriting an existing export.
+Copy and export use Markdown from the same session snapshot shown in the preview. Bridgy asks before overwriting an existing export.
 
 ## CLI reference
 

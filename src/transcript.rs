@@ -103,7 +103,7 @@ pub(crate) fn fit(
 }
 
 impl Transcript {
-    /// The exact text shown in the preview, copied to the clipboard, exported, and printed by `tail`.
+    /// The Markdown used by copy, export, and `tail`, built from the same turns as the preview.
     pub fn markdown(&self) -> String {
         if let [turn] = self.turns.as_slice()
             && turn.role == "document"
