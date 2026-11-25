@@ -8,24 +8,24 @@ Bridgy is a local conversation browser and handoff tool for **Claude Code, Codex
 
 You can also open Bridgy's terminal browser to find a specific conversation, preview it, and copy or export it.
 
-## Quick start
+## Install Bridgy
 
-From a local checkout of the Bridgy source, install the executable with Cargo:
+With Rust and Cargo installed, run this command from any directory on macOS, Linux, or Windows. If you need Cargo, install [Rust](https://rustup.rs/) first and reopen your terminal.
 
 ```sh
-cargo install --path .
-bridgy --version
+cargo install --locked --git https://github.com/glantrox/bridgy
 ```
 
-If your shell can't find `bridgy`, add Cargo's bin directory to your `PATH`. The default is `~/.cargo/bin` on macOS and Linux or `%USERPROFILE%\.cargo\bin` on Windows.
-
-Then open a terminal in the project where you've been using your coding agent:
+Open a fresh terminal in the project where you use your coding agent. Check the installation, then launch the browser.
 
 ```sh
+bridgy --version
 bridgy
 ```
 
-To enable one-prompt handoffs, run `bridgy install` once. Then start a fresh session in a supported agent, in the same checkout, and ask it to pick up where you left off. The receiving agent needs to be able to run `bridgy` in its environment. The source agent can stay closed.
+If your terminal can’t find `bridgy`, add the bin directory printed by Cargo to your `PATH`, then reopen the terminal.
+
+**Optional agent handoffs.** Run `bridgy install` once, then start a fresh agent session in the same checkout and ask it to pick up where you left off.
 
 ## Browse or export a conversation
 
